@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+    <head>
+        <meta charset="utf-8" />
+        <link rel="stylesheet" href="/css/style.css">
+        <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+        <title>Questões</title>
+    </head>
+    <body>
+        <noscript>Necessário ativar javascript para executar esse site</noscript>
+        <div class="game">
+            <h1 onclick="location.reload()">📖Concursando v2📖</h1>
+        </div>
+        <div class="game" id="game">
+            <div class="title">
+                <h4 id="title"></h4>
+            </div>
+            <div class="navegacao"><h4 id="quantidade"></h4><h4 id="acertos"></h4></div>
+            <div class="questao" id="questoes"></div>
+            <div class="navegacao">
+                <button class="botao" onclick="anterior()">Anterior</button>
+                <button class="botao" onclick="proximo()">Próximo</button>
+            </div>
+        </div>
+        <div class="game" id="provas">
+            <h2>Selecione sua prova:</h2>
+        </div>
+        <div class="game" id="resultado">
+        </div>
+    </body>
+    <script>
+
+        document.getElementById("game").style.display = "none";
+        document.getElementById("provas").style.display = "";
+        document.getElementById("resultado").style.display = "none";
+
+        var questoes = [];
+        var provas = [];
+        var numQuestao = 0;
+        var codigoProva = 0;
+        var acertos = 0;
+        var respondeu = false;
+
+        window.onload = function() {
+            buscaProvas();
+        }
+
+        function buscaProvas(){
+            acertos = 0;
+            var settings = {
+              "url": "https://apisunsale.azurewebsites.net/api/PublicQuestoes/GetTests",
+              "method": "GET",
+              "timeout": 0
+            };
+
+            $.ajax(settings).done(function (response) {
+                provas = response.object;
+                EscreveProvas();
+            });
+        }
+
+        function EscreveProvas(){
+            var provasDiv = document.getElementById("provas");
+            var selectInput = document.createElement("select");
+            selectInput.id = "mySelectInput";
+
+            var option = document.createElement("option");
+            option.value = -1;
+            option.text = "Selecione";
+            selectInput.appendChild(option);
+
+            for(var i = 0; i< provas.length; i++){
+                option = document.createElement("option");
+                option.value = provas[i].codigo;
+                option.text = provas[i].nomeProva;
+                selectInput.appendChild(option);
+            }
+
+            selectInput.addEventListener("change", function() {
+                // Get the selected value
+                var selectedValue = selectInput.value;
+                if(selectedValue > 0){
+                    document.getElementById("game").style.display = "";
+                    document.getElementById("provas").style.display = "none";
+                    document.getElementById("resultado").style.display = "none";
+
+                    buscaProva(selectedValue);
+                }
+            });
+
+            provasDiv.appendChild(selectInput);
+        }
+
+        function buscaProva(codigoProva){
+            var settings = {
+              "url": "https://apisunsale.azurewebsites.net/api/PublicQuestoes/GetTests?id=" + codigoProva,
+              "method": "GET",
+              "timeout": 0
+            };
+
+            $.ajax(settings).done(function (response) {
+                document.title = response.object[0].nomeProva;
+                document.getElementById("title").textContent = response.object[0].nomeProva;
+                buscaQuestoes(codigoProva);
+            });
+        }
+
+        function buscaQuestoes(codigoProva){
+            var settings = {
+              "url": "https://apisunsale.azurewebsites.net/api/PublicQuestoes/GetQuestoes?codigoProva=" + codigoProva,
+              "method": "GET",
+              "timeout": 0
+            };
+
+            $.ajax(settings).done(function (response) {
+                questoes = response.object;
+                numQuestao = 0;
+                EscreveQuestao(numQuestao);
+            });
+        }
+
+        function proximo(){
+            if(numQuestao + 1 == questoes.length){
+                abreResultado();
+            }
+            else{
+                numQuestao++;
+                EscreveQuestao(numQuestao);
+            }
+        }
+
+        function anterior(){
+            if(numQuestao - 1 > -1){
+                numQuestao--;
+                EscreveQuestao(numQuestao);
+            }
+        }
+
+        function abreResultado(){
+            document.getElementById("game").style.display = "none";
+            document.getElementById("provas").style.display = "none";
+            document.getElementById("resultado").style.display = "";
+            var resultadoDiv = document.getElementById("resultado");
+
+            var newParagraph = document.createElement("h4");
+
+            newParagraph.textContent = acertos > 0 ? 'Parabéns! Você acertou ' + acertos + ' de ' + questoes.length + '!' : 'Você errou todas!';
+
+            resultadoDiv.appendChild(newParagraph);
+
+        }
+
+        function EscreveQuestao(questao){
+            if(questoes[questao]){
+                var questoesDiv = document.getElementById("questoes");
+
+                while (questoesDiv.firstChild) {
+                    questoesDiv.removeChild(questoesDiv.firstChild);
+                }
+
+                var newParagraph = document.createElement("h4");
+                var newRespostas = document.createElement("div");
+                newRespostas.setAttribute("class", "respostas");
+
+                for(var i = 0;i < questoes[questao].respostasQuestoes.length; i++){
+                    var divResposta = document.createElement("div");
+                    divResposta.setAttribute("class", "resposta");
+                    divResposta.setAttribute("id", questoes[questao].respostasQuestoes[i].certa);
+                    
+                    var newRadioInput = document.createElement("input");
+                    newRadioInput.setAttribute("type", "radio");
+                    // Set a unique name for the radio input (optional)
+                    newRadioInput.setAttribute("name", "radioGroup");
+
+                    divResposta.addEventListener("click", function() {
+                        // Get the id of the clicked element (in this case, "option1")
+
+                        if(respondeu) return;
+
+                        var clickedElementId = this.id;
+                        
+                        if(clickedElementId == "1"){
+                            this.innerHTML += `<h4 style="color: green; padding-left: 8px;">Certa</h4>`;
+                            acertos++;
+                            document.getElementById("acertos").textContent = "Acertos: " + acertos;
+                        }
+                        else{
+                            this.innerHTML += `<h4 style="color: red; padding-left: 8px;">Errado</h4>`;
+                        }
+                        document.getElementsByName('radioGroup').forEach(elem => elem.disabled = true);
+                        respondeu = true;
+
+                        return;
+                    });
+
+                    var paragraphRes = document.createElement("h4");
+                    paragraphRes.textContent = questoes[questao].respostasQuestoes[i].textoResposta;
+
+                    divResposta.appendChild(newRadioInput);
+                    divResposta.appendChild(paragraphRes);
+                    newRespostas.appendChild(divResposta);
+                }
+                
+                questoesDiv.appendChild(newParagraph);
+                questoesDiv.appendChild(newRespostas);
+
+                if(questoes[questao].anexosQuestoes.length > 0){
+                    newParagraph.innerHTML += questoes[questao].campoQuestao;
+                    for (var j = 0; j<questoes[questao].anexosQuestoes.length; j++){
+                        document.getElementById("divAnexo" + j).src = questoes[questao].anexosQuestoes[j].anexo;
+                    }
+                }
+                else{
+                    newParagraph.innerHTML += questoes[questao].campoQuestao;
+                }
+                document.getElementById("quantidade").textContent = "Questão " + numQuestao + " de " + questoes.length;
+                document.getElementById("acertos").textContent = "Acertos: " + acertos;
+                respondeu = false;
+            }
+        }
+
+    </script>
+</html>
